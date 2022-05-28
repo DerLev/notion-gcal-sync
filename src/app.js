@@ -1,66 +1,107 @@
-import { calendar, createSpinner } from './init.js'
+import { calendar, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals } from './init.js'
 
-// testing code => creating an event
+const fullSync = async (gcal, db, additional) => {
+  const currentTime = new Date()
 
-const eventStartTime = new Date()
-eventStartTime.setDate(eventStartTime.getDate() + 2)
+  const oneYearsTime = new Date()
+  oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
+  oneYearsTime.setDate(oneYearsTime.getDate() - 1)
 
-const eventEndTime = new Date()
-eventEndTime.setDate(eventEndTime.getDate() + 2)
-eventEndTime.setMinutes(eventEndTime.getMinutes() + 45)
+  const events = await calendar.events.list(
+    {
+      calendarId: gcal,
+      timeMin: currentTime,
+      timeMax: oneYearsTime,
+      timeZone: process.env.TIMEZONE,
+      orderBy: 'updated',
+      singleEvents: true
+    }
+  )
+  events.data.items.map(async e => {
+    let start = e.start.dateTime
+    let end = e.end.dateTime
+    if(e.start.date) {
+      start = e.start.date
+      end = undefined
+    }
 
-const event = {
-  summary: 'Test event from code',
-  start: {
-    dateTime: eventStartTime,
-    timeZone: process.env.TIMEZONE
-  },
-  end: {
-    dateTime: eventEndTime,
-    timeZone: process.env.TIMEZONE
+    const response = await notionFindPageByTitle(db, e.summary)
+    if(response.results.length) {
+      await notionUpdateEvent(db, response.results[0].id, e.summary, e.description, start, end, e.location, e.hangoutLink, additional)
+      return
+    }
+
+    await notionCreateEvent(db, e.summary, e.description, start, end, e.location, e.hangoutLink, additional)
+  })
+}
+
+const syncOnGCalUpdate = async (gcal, db, additional) => {
+  const currentTime = new Date()
+  
+  const oneYearsTime = new Date()
+  oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
+  oneYearsTime.setDate(oneYearsTime.getDate() - 1)
+  
+  const updateTime = new Date()
+  let updateMins = process.env.SYNC_INTERVAL
+  let updateHrs = 0
+  if(updateMins > 60) {
+    updateHrs = Math.floor(updateMins / 60)
+    updateMins -= updateHrs * 60
+  }
+  updateTime.setHours(updateTime.getHours() - updateHrs, updateTime.getMinutes() - updateMins)
+
+  const events = await calendar.events.list(
+    {
+      calendarId: gcal,
+      timeMin: currentTime,
+      timeMax: oneYearsTime,
+      timeZone: process.env.TIMEZONE,
+      orderBy: 'updated',
+      singleEvents: true,
+      updatedMin: updateTime
+    }
+  )
+
+  events.data.items.map(async e => {
+    let start = e.start.dateTime
+    let end = e.end.dateTime
+    if(e.start.date) {
+      start = e.start.date
+      end = undefined
+    }
+
+    const response = await notionFindPageByTitle(db, e.summary)
+    if(response.results.length) {
+      await notionUpdateEvent(db, response.results[0].id, e.summary, e.description, start, end, e.location, e.hangoutLink, additional)
+      return
+    }
+
+    await notionCreateEvent(db, e.summary, e.description, start, end, e.location, e.hangoutLink, additional)
+  })
+}
+
+const sleep = (ms = 1000) => new Promise((r) => setTimeout(r, ms))
+
+const updateLoop = async () => {
+  let i = 1
+  const fullDay = 1440 / process.env.SYNC_INTERVAL
+
+  while(true) {
+    // perform a full sync every 24h
+    if(i < fullDay) gcals.map(async c => await syncOnGCalUpdate(c.id, c.notionDB, c.additional))
+    else gcals.map(async c => await fullSync(c.id, c.notionDB, c.additional))
+    await sleep(process.env.SYNC_INTERVAL * 60 * 1000)
+    i++
   }
 }
 
 console.log()
-const spinner = createSpinner('Checking for availability').start({ color: 'green' })
-
-calendar.freebusy.query(
-  {
-    resource: {
-      timeMin: eventStartTime,
-      timeMax: eventEndTime,
-      timeZone: process.env.TIMEZONE,
-      items: [{ id: 'primary' }],
-    },
-  },
-  (err, res) => {
-    // Check for errors in our query and log them if they exist.
-    if (err) {
-      spinner.error({ text: 'Free Busy Query Error' })
-      return console.error(err)
-    }
-
-    // Create an array of all events on our calendar during that time.
-    const eventArr = res.data.calendars['primary'].busy
-
-    // Check if event array is empty which means we are not busy
-    if (eventArr.length === 0) {
-      spinner.start({ text: 'Adding Event', color: 'green' })
-      // If we are not busy create a new calendar event.
-      return calendar.events.insert(
-        { calendarId: 'primary', resource: event },
-        err => {
-          // Check for errors and log them if they exist.
-          if (err) {
-            spinner.error({ text: 'Error Creating Calender Event' })
-            return console.error(err)
-          }
-          // Else log that the event was created.
-          return spinner.success({ text: 'Calendar event successfully created' })
-        }
-      )
-    }
-    // If event array is not empty log that we are busy.
-    return spinner.warn({ text: 'Busy at that time' })
-  }
-)
+log(2, 'Executing full sync on all Google Calendars...')
+const fullSyncResponse = gcals.map(async c => await fullSync(c.id, c.notionDB, c.additional))
+Promise.all(fullSyncResponse).then(async () => {
+  log(2, 'Done!')
+  await sleep(5000)
+  log(2, 'Entering update loop')
+  await updateLoop()
+})

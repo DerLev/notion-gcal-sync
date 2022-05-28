@@ -1,0 +1,23 @@
+{
+  "name": "notion-gcal-sync",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DerLev/notion-gcal-sync.git"
+  },
+  "author": "DerLev",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/DerLev/notion-gcal-sync/issues"
+  },
+  "homepage": "https://github.com/DerLev/notion-gcal-sync#readme",
+  "dependencies": {
+    "nodemon": "^2.0.16"
+  }
+}

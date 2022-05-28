@@ -12,7 +12,7 @@ const fullSync = async (gcal, db, additional) => {
       calendarId: gcal,
       timeMin: currentTime,
       timeMax: oneYearsTime,
-      timeZone: process.env.TIMEZONE,
+      timeZone: process.env.TZ,
       orderBy: 'updated',
       singleEvents: true
     }
@@ -56,7 +56,7 @@ const syncOnGCalUpdate = async (gcal, db, additional) => {
       calendarId: gcal,
       timeMin: currentTime,
       timeMax: oneYearsTime,
-      timeZone: process.env.TIMEZONE,
+      timeZone: process.env.TZ,
       orderBy: 'updated',
       singleEvents: true,
       updatedMin: updateTime

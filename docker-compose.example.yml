@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+  notion-gcal-sync:
+    image: ghcr.io/derlev/notion-gcal-sync:v1
+    restart: unless-stopped
+    volumes:
+      - .env:/app/.env:ro
+      - dbs.js:/app/config/dbs.js:ro
+      - gcal-sync.js:/app/config/gcal-sync.js:ro

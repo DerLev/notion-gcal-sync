@@ -202,4 +202,12 @@ const notionUpdateEvent = async (db, pid, title, description, startDate, endDate
   })
 }
 
+const shutdown = () => {
+  log(2, 'Shutting down Notion GCal Sync...')
+  process.exit()
+}
+
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
+
 export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals }

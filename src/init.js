@@ -202,6 +202,13 @@ const notionUpdateEvent = async (db, pid, title, description, startDate, endDate
   })
 }
 
+const notionDeleteEvent = async (pid) => {
+  return await notion.pages.update({
+    page_id: pid,
+    archived: true
+  })
+}
+
 const shutdown = () => {
   log(2, 'Shutting down Notion GCal Sync...')
   process.exit()
@@ -210,4 +217,4 @@ const shutdown = () => {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals }
+export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent }

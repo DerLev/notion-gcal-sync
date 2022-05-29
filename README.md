@@ -6,11 +6,9 @@
 
 #### Prerequisites
 
-- Docker with Docker-Compose
-
-OR
-
-- nodejs v16 with `yarn`
+- Google Calnedar API [*read here*](https://github.com/DerLev/notion-gcal-sync/wiki/Setting-up-Google-Calendar-API)
+- Notion Application [*read here*](https://github.com/DerLev/notion-gcal-sync/wiki/Setting-up-Notion-Application)
+- Docker with Docker Compose **OR** nodejs v16 with `yarn`
 
 #### Docker Compose
 
@@ -79,7 +77,9 @@ export default gcals
 
 #### Prerequisites
 
-- yarn
+- Google Calnedar API [*read here*](https://github.com/DerLev/notion-gcal-sync/wiki/Setting-up-Google-Calendar-API)
+- Notion Application [*read here*](https://github.com/DerLev/notion-gcal-sync/wiki/Setting-up-Notion-Application)
+- nodejs v16 with `yarn`
 
 #### Running dev environment
 

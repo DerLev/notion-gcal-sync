@@ -106,18 +106,30 @@ gcalKeys.forEach((key) => {
 
 // FUNCTIONS
 
-const notionFindPageByTitle = async (db, title) => {
+const notionFindPageByTitle = async (db, title, gcalId, eventId) => {
   if(!dbs[db]) throw 'Database not defined'
 
-  return await notion.databases.query({
-    database_id: db,
-    filter: {
-      property: dbs[db].title,
-      title: {
-        equals: title
+  if(dbs[db].gcalID != null) {
+    return await notion.databases.query({
+      database_id: db,
+      filter: {
+        property: dbs[db].gcalID,
+        rich_text: {
+          equals: gcalId + '$' + eventId
+        }
       }
-    }
-  })
+    })
+  } else {
+    return await notion.databases.query({
+      database_id: db,
+      filter: {
+        property: dbs[db].title,
+        title: {
+          equals: title
+        }
+      }
+    })
+  }
 }
 
 const notionEvent = async (db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {

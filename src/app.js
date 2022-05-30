@@ -31,7 +31,7 @@ const fullSync = async (gcal, db, additional, omittedItems) => {
     const checkForOmitted = omittedItems.find(item => item == e.id)
     if(checkForOmitted) return
 
-    const findResponse = await notionFindPageByTitle(db, e.summary)
+    const findResponse = await notionFindPageByTitle(db, e.summary, gcal, e.id)
     if(findResponse.results.length) {
       const response = await notionUpdateEvent(db, findResponse.results[0].id, e.summary, e.description, start, end, e.location, e.hangoutLink, gcal, e.id, additional)
       omittedNotionItems.push(response.id)
@@ -74,7 +74,7 @@ const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedIte
     const checkForOmitted = omittedItems.find(item => item == e.id)
     if(checkForOmitted) return
 
-    const findResponse = await notionFindPageByTitle(db, e.summary)
+    const findResponse = await notionFindPageByTitle(db, e.summary, gcal, e.id)
     if(findResponse.results.length) {
       if(e.status != 'cancelled') {
         const response = await notionUpdateEvent(db, findResponse.results[0].id, e.summary, e.description, start, end, e.location, e.hangoutLink, gcal, e.id, additional)

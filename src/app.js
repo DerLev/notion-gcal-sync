@@ -170,37 +170,68 @@ const sleep = (ms = 1000) => new Promise((r) => setTimeout(r, ms))
 
 const updateLoop = async () => {
   let i = 1
+  let j = process.env.SYNC_INTERVAL
   const fullDay = 1440 / process.env.SYNC_INTERVAL
-  let lastUpdateTime = new Date()
+  let updateTime = new Date()
   let updateMins = process.env.SYNC_INTERVAL
   let updateHrs = 0
   if(updateMins > 60) {
     updateHrs = Math.floor(updateMins / 60)
     updateMins -= updateHrs * 60
   }
-  lastUpdateTime.setHours(lastUpdateTime.getHours() - updateHrs, lastUpdateTime.getMinutes() - updateMins)
+  updateTime.setHours(updateTime.getHours() - updateHrs, updateTime.getMinutes() - updateMins)
+
+  let gcalUpdateTime = updateTime
+  let notionUpdateTime = updateTime
+
+  let oldOmittedGCalItems = omittedGCalItems
+  let oldOmittedNotionItems = omittedNotionItems
 
   while(true) {
-    let newUpdateTime = new Date()
-    let oldOmittedGCalItems = omittedGCalItems
-    let oldOmittedNotionItems = omittedNotionItems
+    const currentTime = new Date()
 
-    omittedGCalItems = []
-    omittedNotionItems = []
-    // perform a full sync every 24h
-    if(i < fullDay) {
-      gcals.map(async c => await syncOnGCalUpdate(c.id, c.notionDB, c.additional, lastUpdateTime, oldOmittedGCalItems))
+    if(j == process.env.SYNC_INTERVAL) {
+      // check for full day to execute full-day-sync
+      if(i < fullDay) {
+        if(currentTime.getSeconds() == 30) {
+          oldOmittedGCalItems = omittedGCalItems
+          omittedGCalItems = []
+          // gcal update
+          gcals.map(c => syncOnGCalUpdate(c.id, c.notionDB, c.additional, gcalUpdateTime, oldOmittedGCalItems))
+          gcalUpdateTime = currentTime
+        }
+    
+        if(currentTime.getSeconds() == 59) {
+          oldOmittedNotionItems = omittedNotionItems
+          omittedNotionItems = []
+          // notion update
+          const keys = Object.keys(dbs)
+          keys.forEach(async (key) => {
+            if(dbSettings[key].syncToGCal == true) syncOnNotionUpdate(key, notionUpdateTime, oldOmittedNotionItems)
+            notionUpdateTime = currentTime
+          })
+  
+          j = 1
+          i++
+        }
+      } else if(currentTime.getSeconds() == 30) {
+        oldOmittedGCalItems = omittedGCalItems
+        omittedGCalItems = []
+        oldOmittedNotionItems = omittedNotionItems
+        omittedNotionItems = []
+        // full-sync from gcal to notion
+        gcals.map(c => fullSync(c.id, c.notionDB, c.additional, oldOmittedGCalItems))
+        gcalUpdateTime = currentTime
+        notionUpdateTime = currentTime
 
-      const keys = Object.keys(dbs)
-      keys.forEach(async (key) => {
-        if(dbSettings[key].syncToGCal == true) await syncOnNotionUpdate(key, lastUpdateTime, oldOmittedNotionItems)
-      })
+        j = 1
+        i = 1
+      }
+    } else if(currentTime.getSeconds() == 59) {
+      j++
     }
-    else gcals.map(async c => await fullSync(c.id, c.notionDB, c.additional, oldOmittedGCalItems))
 
-    lastUpdateTime = newUpdateTime
-    i++
-    await sleep(process.env.SYNC_INTERVAL * 60 * 1000)
+    await sleep(1000)
   }
 }
 
@@ -210,7 +241,7 @@ const fullSyncResponse = gcals.map(async c => await fullSync(c.id, c.notionDB, c
 Promise.all(fullSyncResponse).then(async () => {
   log(2, 'Done!')
   let delay = new Date()
-  delay = 59000 - ( delay.getSeconds() > 58 ? - delay.getMilliseconds() : delay.getSeconds() * 1000 + delay.getMilliseconds() )
+  delay = 60000 - delay.getSeconds() * 1000 + delay.getMilliseconds()
   await sleep(delay)
   log(2, 'Entering update loop')
   await updateLoop()

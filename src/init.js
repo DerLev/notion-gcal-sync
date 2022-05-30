@@ -72,6 +72,7 @@ const dbsSchema = Joi.object({
     then: Joi.string().required(),
     otherwise: Joi.valid(null).required()
   }),
+  eventEnded: Joi.string().allow(null).required(),
   additional: Joi.object().required()
 })
 
@@ -237,6 +238,21 @@ const notionUpdateEvent = async (db, pid, title, description, startDate, endDate
   })
 }
 
+const notionUpdateEventEnded = async (db, pid, ended) => {
+  const properties = {}
+
+  if(dbs[db].eventEnded != null) {
+    properties[dbs[db].eventEnded] = {
+      checkbox: ended
+    }
+
+    return await notion.pages.update({
+      page_id: pid,
+      properties: properties
+    })
+  }
+}
+
 const notionDeleteEvent = async (pid) => {
   return await notion.pages.update({
     page_id: pid,
@@ -252,4 +268,4 @@ const shutdown = () => {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent, dbSettings, dbs }
+export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent, dbSettings, dbs, notionUpdateEventEnded }

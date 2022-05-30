@@ -1,4 +1,4 @@
-import { calendar, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent, dbSettings, dbs, notion } from './init.js'
+import { calendar, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent, dbSettings, dbs, notion, notionUpdateEventEnded } from './init.js'
 
 let omittedNotionItems = []
 let omittedGCalItems = []
@@ -91,7 +91,7 @@ const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedIte
   })
 }
 
-const syncOnNotionUpdate = async (db, lastUpdateTime, omittedItems) => {
+const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) => {
   const oneYearsTime = new Date()
   oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
   oneYearsTime.setDate(oneYearsTime.getDate() - 1)
@@ -149,7 +149,6 @@ const syncOnNotionUpdate = async (db, lastUpdateTime, omittedItems) => {
         timeZone: process.env.TZ
       }
 
-      // TODO: fix error with all-day events
       const res = await calendar.events.update({
         calendarId: gcalID[0],
         eventId: gcalID[1],
@@ -163,6 +162,31 @@ const syncOnNotionUpdate = async (db, lastUpdateTime, omittedItems) => {
       })
       omittedGCalItems.push(gcalID[1])
     })
+  }
+
+  // mark all events that lie in the past as done
+  if(dbs[db].eventEnded != null) {
+    const responseMark = await notion.databases.query({
+      database_id: db,
+      filter: {
+        and: [
+          {
+            property: dbs[db].date,
+            date: {
+              on_or_before: lastUpdateTime
+            }
+          },
+          {
+            property: dbs[db].eventEnded,
+            checkbox: {
+              does_not_equal: true
+            }
+          }
+        ]
+      }
+    })
+  
+    responseMark.results.map(async e => await notionUpdateEventEnded(db, e.id, true))
   }
 }
 
@@ -207,7 +231,7 @@ const updateLoop = async () => {
           // notion update
           const keys = Object.keys(dbs)
           keys.forEach(async (key) => {
-            if(dbSettings[key].syncToGCal == true) syncOnNotionUpdate(key, notionUpdateTime, oldOmittedNotionItems)
+            if(dbSettings[key].syncToGCal == true) syncOnNotionUpdateAndMarkDone(key, notionUpdateTime, oldOmittedNotionItems)
             notionUpdateTime = currentTime
           })
   

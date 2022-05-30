@@ -66,15 +66,25 @@ const dbsSchema = Joi.object({
   date: Joi.string().required(),
   location: Joi.string().allow(null).required(),
   meetingURL: Joi.string().allow(null).required(),
+  lastEdited: Joi.string().allow(null).required(),
+  gcalID: Joi.when('lastEdited', {
+    is: Joi.string(),
+    then: Joi.string().required(),
+    otherwise: Joi.valid(null).required()
+  }),
   additional: Joi.object().required()
 })
 
 const dbKeys = Object.keys(dbs)
+const dbSettings = {}
 dbKeys.forEach((key) => {
   const { error } = dbsSchema.validate(dbs[key])
   if(error) {
     log(0, chalk.bgGreen('dbs.json') + ' > ' + chalk.bgBlue(key) + ' > ' + chalk.bgRedBright(error.details[0].message))
     process.exit(1)
+  }
+  dbSettings[key] = {
+    syncToGCal: dbs[key].lastEdited != null ? true : false
   }
 })
 
@@ -110,7 +120,7 @@ const notionFindPageByTitle = async (db, title) => {
   })
 }
 
-const notionEvent = async (db, title, description, startDate, endDate, location, meetingURL, additionalProps) => {
+const notionEvent = async (db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
   if(!dbs[db]) throw 'Database not defined'
   if(!title) throw 'There has to be a title set'
 
@@ -172,6 +182,19 @@ const notionEvent = async (db, title, description, startDate, endDate, location,
     }
   }
 
+  if(dbs[db].gcalID != null) {
+    if(gcalID && evntID) properties[dbs[db].gcalID] = {
+      rich_text: [
+        { type: 'text', text: { content: gcalID + '$' + evntID } }
+      ]
+    }
+    else properties[dbs[db].gcalID] = {
+      rich_text: [
+        { type: 'text', text: { content: '' } }
+      ]
+    }
+  }
+
   if(additionalProps) {
     const keys = Object.keys(additionalProps)
     keys.forEach((key) => {
@@ -182,8 +205,8 @@ const notionEvent = async (db, title, description, startDate, endDate, location,
   return properties
 }
 
-const notionCreateEvent = async (db, title, description, startDate, endDate, location, meetingURL, additionalProps) => {
-  const properties = await notionEvent(db, title, description, startDate, endDate, location, meetingURL, additionalProps)
+const notionCreateEvent = async (db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
+  const properties = await notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps)
 
   return await notion.pages.create({
     parent: {
@@ -193,8 +216,8 @@ const notionCreateEvent = async (db, title, description, startDate, endDate, loc
   })
 }
 
-const notionUpdateEvent = async (db, pid, title, description, startDate, endDate, location, meetingURL, additionalProps) => {
-  const properties = await notionEvent(db, title, description, startDate, endDate, location, meetingURL, additionalProps)
+const notionUpdateEvent = async (db, pid, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
+  const properties = await notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps)
 
   return await notion.pages.update({
     page_id: pid,
@@ -217,4 +240,4 @@ const shutdown = () => {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent }
+export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent, dbSettings, dbs }

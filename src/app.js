@@ -1,8 +1,29 @@
-import { calendar, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent, dbSettings, dbs, notion, notionUpdateEventEnded } from './init.js'
+import {
+  gcals,
+  dbs,
+  dbSettings,
+  log,
+  sleep,
+  calendar,
+  notion,
+  notionCreateEvent,
+  notionUpdateEvent,
+  notionUpdateEventEnded,
+  notionDeleteEvent,
+  notionFindPageByTitle
+} from './init.js'
 
 let omittedNotionItems = []
 let omittedGCalItems = []
 
+/**
+ * Execute a full-sync from Google Calendars to Notion
+ * @param {string} gcal The id of the Google Calendar to sync from
+ * @param {string} db The id of the Notion database to sync to
+ * @param {any} additional Additional fields following https://developers.notion.com/reference/property-value-object
+ * @param {string[]} omittedItems Google Calendar event ids omitted from syncing - to prevent infinite sync loops
+ * @returns {Promise<void>}
+ */
 const fullSync = async (gcal, db, additional, omittedItems) => {
   const currentTime = new Date()
 
@@ -10,7 +31,7 @@ const fullSync = async (gcal, db, additional, omittedItems) => {
   oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
   oneYearsTime.setDate(oneYearsTime.getDate() - 1)
 
-  const events = await calendar.events.list(
+  const eventsResponse = await calendar.events.list(
     {
       calendarId: gcal,
       timeMin: currentTime,
@@ -20,29 +41,62 @@ const fullSync = async (gcal, db, additional, omittedItems) => {
       singleEvents: true
     }
   )
-  events.data.items.map(async e => {
-    let start = e.start.dateTime
-    let end = e.end.dateTime
-    if(e.start.date) {
-      start = e.start.date
+  const events = eventsResponse.data.items
+  events.map(async event => {
+    let start = event.start.dateTime
+    let end = event.end.dateTime
+    if(event.start.date) {
+      start = event.start.date
       end = undefined
     }
 
-    const checkForOmitted = omittedItems.find(item => item == e.id)
+    const checkForOmitted = omittedItems.find(item => item == event.id)
     if(checkForOmitted) return
 
-    const findResponse = await notionFindPageByTitle(db, e.summary, gcal, e.id)
+    const findResponse = await notionFindPageByTitle(db, event.summary, gcal, event.id)
     if(findResponse.results.length) {
-      const response = await notionUpdateEvent(db, findResponse.results[0].id, e.summary, e.description, start, end, e.location, e.hangoutLink, gcal, e.id, additional)
+      const response = await notionUpdateEvent(
+        db,
+        findResponse.results[0].id,
+        event.summary,
+        event.description,
+        start,
+        end,
+        event.location,
+        event.hangoutLink,
+        gcal,
+        event.id,
+        additional
+      )
       omittedNotionItems.push(response.id)
       return
     }
 
-    const response = await notionCreateEvent(db, e.summary, e.description, start, end, e.location, e.hangoutLink, gcal, e.id, additional)
+    const response = await notionCreateEvent(
+      db,
+      event.summary,
+      event.description,
+      start,
+      end,
+      event.location,
+      event.hangoutLink,
+      gcal,
+      event.id,
+      additional
+    )
     omittedNotionItems.push(response.id)
   })
 }
 
+/**
+ * Execute an updating partial sync from Google Calendars to Notion
+ * @param {string} gcal The id of the Google Calendar to sync from
+ * @param {string} db The id of the Notion databse to sync to
+ * @param {any} additional Additional fields following https://developers.notion.com/reference/property-value-object
+ * @param {Date} lastUpdateTime The last time there was a sync
+ * @param {string[]} omittedItems The Google Calendars event ids ommited from syncing - to prevent infinite sync loops
+ * @returns {Promise<void>}
+ */
 const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedItems) => {
   const currentTime = new Date()
   
@@ -50,7 +104,7 @@ const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedIte
   oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
   oneYearsTime.setDate(oneYearsTime.getDate() - 1)
   
-  const events = await calendar.events.list(
+  const eventsResponse = await calendar.events.list(
     {
       calendarId: gcal,
       timeMin: currentTime,
@@ -62,43 +116,70 @@ const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedIte
       showDeleted: true
     }
   )
-
-  events.data.items.map(async e => {
-    let start = e.start.dateTime
-    let end = e.end.dateTime
-    if(e.start.date) {
-      start = e.start.date
+  const events = eventsResponse.data.items
+  events.map(async event => {
+    let start = event.start.dateTime
+    let end = event.end.dateTime
+    if(event.start.date) {
+      start = event.start.date
       end = undefined
     }
 
-    const checkForOmitted = omittedItems.find(item => item == e.id)
+    const checkForOmitted = omittedItems.find(item => item == event.id)
     if(checkForOmitted) return
 
-    const findResponse = await notionFindPageByTitle(db, e.summary, gcal, e.id)
+    const findResponse = await notionFindPageByTitle(db, event.summary, gcal, event.id)
     if(findResponse.results.length) {
-      if(e.status != 'cancelled') {
-        const response = await notionUpdateEvent(db, findResponse.results[0].id, e.summary, e.description, start, end, e.location, e.hangoutLink, gcal, e.id, additional)
+      if(event.status != 'cancelled') {
+        const response = await notionUpdateEvent(
+          db,
+          findResponse.results[0].id,
+          event.summary,
+          event.description,
+          start,
+          end,
+          event.location,
+          event.hangoutLink,
+          gcal,
+          event.id,
+          additional
+        )
         omittedNotionItems.push(response.id)
       }
       else await notionDeleteEvent(findResponse.results[0].id)
       return
     }
 
-    if(e.status != 'cancelled') {
-      const response = await notionCreateEvent(db, e.summary, e.description, start, end, e.location, e.hangoutLink, gcal, e.id, additional)
+    if(event.status != 'cancelled') {
+      const response = await notionCreateEvent(
+        db,
+        event.summary,
+        event.description,
+        start,
+        end,
+        event.location,
+        event.hangoutLink,
+        gcal,
+        event.id,
+        additional
+      )
       omittedNotionItems.push(response.id)
     }
   })
 }
 
+/**
+ * Executing an updating partial sync from Notion to Google Calendars and check ended events as "Done" if configured
+ * @param {string} db The databse id from Notion to pull data from
+ * @param {Date} lastUpdateTime The datetime of the last update
+ * @param {string[]} omittedItems Ids of items to be omitted from syncing - to prevent infinite sync loops
+ * @returns {Promise<void>}
+ */
 const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) => {
   const oneYearsTime = new Date()
   oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
   oneYearsTime.setDate(oneYearsTime.getDate() - 1)
   
-  const omitted = {}
-  omittedItems.map(i => omitted[i] = true)
-
   const response = await notion.databases.query({
     database_id: db,
     filter: {
@@ -110,54 +191,54 @@ const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) =
   })
 
   const arr = []
-  response.results.map(i => {
-    if(omitted[i.id] == true) return
+  response.results.map(item => {
+    if(omittedItems.find(item => item == item.id)) return
 
     arr.push({
-      id: i.id,
-      ...i.properties
+      id: item.id,
+      ...item.properties
     })
   })
   if(arr.length) {
-    arr.map(async i => {
-      const gcalID = i[dbs[db].gcalID].rich_text[0].plain_text.split("$")
+    arr.map(async item => {
+      const gcalID = item[dbs[db].gcalID].rich_text[0].plain_text.split("$")
 
-      let startDateFormat = new Date(i[dbs[db].date].date.start)
+      let startDateFormat = new Date(item[dbs[db].date].date.start)
       // why is January defined as 0 in .getMonth() ??? WTF ECMAScript! took me a day to figure out
       startDateFormat = startDateFormat.getFullYear() + '-' + String(startDateFormat.getMonth() + 1).padStart(2, '0') + '-' + String(startDateFormat.getDate()).padStart(2, '0')
-      const start = i[dbs[db].date].date.end ? i[dbs[db].date].date.start.match(/(\d){4}-(\d){2}-(\d){2}\W/) ? {
-        date: i[dbs[db].date].date.start,
+      const start = item[dbs[db].date].date.end ? item[dbs[db].date].date.start.match(/(\d){4}-(\d){2}-(\d){2}\W/) ? {
+        date: item[dbs[db].date].date.start,
         timeZone: process.env.TZ
       } : {
-        dateTime: i[dbs[db].date].date.start,
+        dateTime: item[dbs[db].date].date.start,
         timeZone: process.env.TZ
       } : {
         date: startDateFormat,
         timeZone: process.env.TZ
       }
-      let startToEnd = new Date(i[dbs[db].date].date.start)
-      startToEnd.setDate(startToEnd.getDate() + 1)
-      startToEnd = startToEnd.getFullYear() + '-' + String(startToEnd.getMonth() + 1).padStart(2, '0') + '-' + String(startToEnd.getDate()).padStart(2, '0')
-      const end = i[dbs[db].date].date.end ? i[dbs[db].date].date.end.match(/(\d){4}-(\d){2}-(\d){2}\W/) ? {
-        date: i[dbs[db].date].date.end,
+      let endDateFormat = new Date(item[dbs[db].date].date.start)
+      endDateFormat.setDate(endDateFormat.getDate() + 1)
+      endDateFormat = endDateFormat.getFullYear() + '-' + String(endDateFormat.getMonth() + 1).padStart(2, '0') + '-' + String(endDateFormat.getDate()).padStart(2, '0')
+      const end = item[dbs[db].date].date.end ? item[dbs[db].date].date.end.match(/(\d){4}-(\d){2}-(\d){2}\W/) ? {
+        date: item[dbs[db].date].date.end,
         timeZone: process.env.TZ
       } : {
-        dateTime: i[dbs[db].date].date.end,
+        dateTime: item[dbs[db].date].date.end,
         timeZone: process.env.TZ
       } : {
-        date: startToEnd,
+        date: endDateFormat,
         timeZone: process.env.TZ
       }
 
-      const res = await calendar.events.update({
+      await calendar.events.update({
         calendarId: gcalID[0],
         eventId: gcalID[1],
         requestBody: {
           start: start,
           end: end,
-          summary: i[dbs[db].title].title[0].plain_text,
-          location: i[dbs[db].location].rich_text[0].plain_text,
-          description: i[dbs[db].description].rich_text[0].plain_text
+          summary: item[dbs[db].title].title[0].plain_text,
+          location: item[dbs[db].location].rich_text[0] ? item[dbs[db].location].rich_text[0].plain_text : "",
+          description: item[dbs[db].description].rich_text[0] ? item[dbs[db].description].rich_text[0].plain_text : ""
         }
       })
       omittedGCalItems.push(gcalID[1])
@@ -186,12 +267,14 @@ const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) =
       }
     })
   
-    responseMark.results.map(async e => await notionUpdateEventEnded(db, e.id, true))
+    responseMark.results.map(async event => await notionUpdateEventEnded(db, event.id, true))
   }
 }
 
-const sleep = (ms = 1000) => new Promise((r) => setTimeout(r, ms))
-
+/**
+ * The update-loop
+ * @returns {Promise<never>}
+ */
 const updateLoop = async () => {
   let i = 1
   let j = process.env.SYNC_INTERVAL
@@ -221,7 +304,7 @@ const updateLoop = async () => {
           oldOmittedGCalItems = omittedGCalItems
           omittedGCalItems = []
           // gcal update
-          gcals.map(c => syncOnGCalUpdate(c.id, c.notionDB, c.additional, gcalUpdateTime, oldOmittedGCalItems))
+          gcals.map(calendar => syncOnGCalUpdate(calendar.id, calendar.notionDB, calendar.additional, gcalUpdateTime, oldOmittedGCalItems))
           gcalUpdateTime = currentTime
         }
     
@@ -244,7 +327,7 @@ const updateLoop = async () => {
         oldOmittedNotionItems = omittedNotionItems
         omittedNotionItems = []
         // full-sync from gcal to notion
-        gcals.map(c => fullSync(c.id, c.notionDB, c.additional, oldOmittedGCalItems))
+        gcals.map(calendar => fullSync(calendar.id, calendar.notionDB, calendar.additional, oldOmittedGCalItems))
         gcalUpdateTime = currentTime
         notionUpdateTime = currentTime
 
@@ -261,7 +344,7 @@ const updateLoop = async () => {
 
 console.log()
 log(2, 'Executing full sync on all Google Calendars...')
-const fullSyncResponse = gcals.map(async c => await fullSync(c.id, c.notionDB, c.additional, []))
+const fullSyncResponse = gcals.map(async calendar => await fullSync(calendar.id, calendar.notionDB, calendar.additional, []))
 Promise.all(fullSyncResponse).then(async () => {
   log(2, 'Done!')
   let delay = new Date()

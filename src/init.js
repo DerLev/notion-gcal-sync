@@ -11,18 +11,20 @@ import gcals from '../config/gcal-sync.js'
 
 dotenv.config()
 
+// Initializing OAuth2 and creating access token
 const { OAuth2 } = google.auth
-
 const oAuth2Client = new OAuth2( process.env.GOOGLE_CID, process.env.GOOGLE_CS )
-
 oAuth2Client.setCredentials({
   refresh_token: process.env.GOOGLE_ACCOUNT_REFRESH_TOKEN
 })
 
+// Initializing calendar object with OAuth2 client
 const calendar = google.calendar({ version: 'v3', auth: oAuth2Client })
 
+// Initializing Notion application with set token
 const notion = new Client({ auth: process.env.NOTION_TOKEN })
 
+// Printing title
 console.log(
   chalk.blue(
     figlet.textSync(
@@ -34,7 +36,13 @@ console.log(
   )
 )
 
-const log = (level, text) => {
+/**
+ * Prints out a log message with date, time and log-level
+ * @param {number} level The log-level - 0: critical; 1: warning; 2: info; 3: output/debug
+ * @param {any} text The message test
+ * @param  {...any} moreText More text for the log message
+ */
+const log = (level, text, ...moreText) => {
   let logLevel
 
   switch (level) {
@@ -56,7 +64,7 @@ const log = (level, text) => {
 
   const time = new Date()
 
-  console.log(logLevel, chalk.gray(time.toLocaleString()), text)
+  console.log(logLevel, chalk.gray(time.toLocaleString()), text, ...moreText)
 }
 
 // check dbs.js file for correct formatting
@@ -105,8 +113,21 @@ gcalKeys.forEach((key) => {
   }
 })
 
-// FUNCTIONS
+/**
+ * A sleeper function
+ * @param {number} ms The millisceonds to wait
+ * @returns {Promise<any>}
+ */
+const sleep = (ms = 1000) => new Promise((r) => setTimeout(r, ms))
 
+/**
+ * This function tries to find a page in a Notion database by it's title OR when configured it's event ids
+ * @param {string} db The id of the Notion database
+ * @param {string} title The title of the page to be found
+ * @param {string} gcalId The Google Calendars calendar id
+ * @param {string} eventId The id of the Google Calendar Event
+ * @returns {Promise<QueryDatabaseResponse>}
+ */
 const notionFindPageByTitle = async (db, title, gcalId, eventId) => {
   if(!dbs[db]) throw 'Database not defined'
 
@@ -133,7 +154,21 @@ const notionFindPageByTitle = async (db, title, gcalId, eventId) => {
   }
 }
 
-const notionEvent = async (db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
+/**
+ * Helper function for generating page properties for notion
+ * @param {string} db
+ * @param {string} title
+ * @param {string} description
+ * @param {(string | Date)} startDate
+ * @param {(string | Date)} endDate
+ * @param {string} location
+ * @param {string} meetingURL
+ * @param {string} gcalID
+ * @param {string} evntID
+ * @param {string} additionalProps
+ * @yields {*}
+ */
+const notionEvent = (db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
   if(!dbs[db]) throw 'Database not defined'
   if(!title) throw 'There has to be a title set'
 
@@ -218,8 +253,22 @@ const notionEvent = async (db, title, description, startDate, endDate, location,
   return properties
 }
 
-const notionCreateEvent = async (db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
-  const properties = await notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps)
+/**
+ * This function creates an event in Notion originating from Google Calendars
+ * @param {string} db The database id from Notion
+ * @param {string} title Title of the event
+ * @param {string} description Description of the event
+ * @param {(string | Date)} startDate The starting date - either Date object or string with 'yyyy-mm-dd' template
+ * @param {(string | Date)} endDate The ending date of the event - either Date object or string with 'yyyy-mm-dd' template
+ * @param {string} location The location field
+ * @param {string} meetingURL The URL for an attached meeting
+ * @param {string} gcalID The id of the Google Calendar
+ * @param {string} eventID The id of the Google Calendar event
+ * @param {*} additionalProps Additional props following https://developers.notion.com/reference/property-value-object
+ * @returns {Promise<CreatePageResponse>}
+ */
+const notionCreateEvent = async (db, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps) => {
+  const properties = notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps)
 
   return await notion.pages.create({
     parent: {
@@ -229,8 +278,22 @@ const notionCreateEvent = async (db, title, description, startDate, endDate, loc
   })
 }
 
-const notionUpdateEvent = async (db, pid, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
-  const properties = await notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps)
+/**
+ * This function updates an event in Notion originating from Google Calendars
+ * @param {string} db The database id from Notion
+ * @param {string} title Title of the event
+ * @param {string} description Description of the event
+ * @param {(string | Date)} startDate The starting date - either Date object or string with 'yyyy-mm-dd' template
+ * @param {(string | Date)} endDate The ending date of the event - either Date object or string with 'yyyy-mm-dd' template
+ * @param {string} location The location field
+ * @param {string} meetingURL The URL for an attached meeting
+ * @param {string} gcalID The id of the Google Calendar
+ * @param {string} eventID The id of the Google Calendar event
+ * @param {*} additionalProps Additional props following https://developers.notion.com/reference/property-value-object
+ * @returns {Promise<UpdatePageResponse>}
+ */
+const notionUpdateEvent = async (db, pid, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps) => {
+  const properties = notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps)
 
   return await notion.pages.update({
     page_id: pid,
@@ -238,6 +301,13 @@ const notionUpdateEvent = async (db, pid, title, description, startDate, endDate
   })
 }
 
+/**
+ * This function updates an event's "Done" checkbox in a Notion database
+ * @param {string} db The id of the Notion database
+ * @param {string} pid The id of the page to be updated
+ * @param {boolean} ended The value of the cehckbox to be set
+ * @returns {(Promise<UpdatePageResponse> | void)}
+ */
 const notionUpdateEventEnded = async (db, pid, ended) => {
   const properties = {}
 
@@ -253,6 +323,11 @@ const notionUpdateEventEnded = async (db, pid, ended) => {
   }
 }
 
+/**
+ * This function deletes a page / event in Notion
+ * @param {string} pid The id of the page in Notion to be deleted
+ * @returns {Promise<UpdatePageResponse>}
+ */
 const notionDeleteEvent = async (pid) => {
   return await notion.pages.update({
     page_id: pid,
@@ -268,4 +343,22 @@ const shutdown = () => {
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
 
-export { google, oAuth2Client, calendar, figlet, chalk, createSpinner, notion, notionCreateEvent, notionFindPageByTitle, log, notionUpdateEvent, gcals, notionDeleteEvent, dbSettings, dbs, notionUpdateEventEnded }
+export {
+  figlet,
+  createSpinner,
+  chalk,
+  gcals,
+  dbs,
+  dbSettings,
+  google,
+  oAuth2Client,
+  calendar,
+  notion,
+  log,
+  sleep,
+  notionCreateEvent,
+  notionUpdateEvent,
+  notionUpdateEventEnded,
+  notionDeleteEvent,
+  notionFindPageByTitle
+}

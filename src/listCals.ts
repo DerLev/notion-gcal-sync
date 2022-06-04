@@ -40,8 +40,8 @@ calendar.calendarList.list(
       return console.error(err)
     }
 
-    const cals = res.data.items
-    const filteredCals = cals.filter(c => c.accessRole == "writer" || c.accessRole == "owner")
+    const cals = res?.data.items
+    const filteredCals = cals?.filter(c => c.accessRole == "writer" || c.accessRole == "owner") || []
 
     spinner.success({ text: 'Done' })
     console.log('')

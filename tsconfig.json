@@ -1,0 +1,13 @@
+{
+  "extends": "@tsconfig/node16/tsconfig.json",
+  "compilerOptions": {
+    "moduleResolution": "node",
+    "rootDir": "src",
+    "outDir": "build",
+    "allowJs": true,
+    "checkJs": false,
+    "resolveJsonModule": true,
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules"]
+}

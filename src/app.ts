@@ -11,10 +11,10 @@ import {
   notionUpdateEventEnded,
   notionDeleteEvent,
   notionFindPageByTitle
-} from './init.js'
+} from './init'
 
-let omittedNotionItems = []
-let omittedGCalItems = []
+let omittedNotionItems: string[] = []
+let omittedGCalItems: string[] = []
 
 /**
  * Execute a full-sync from Google Calendars to Notion
@@ -24,7 +24,7 @@ let omittedGCalItems = []
  * @param {string[]} omittedItems Google Calendar event ids omitted from syncing - to prevent infinite sync loops
  * @returns {Promise<void>}
  */
-const fullSync = async (gcal, db, additional, omittedItems) => {
+const fullSync = async (gcal: string, db: string, additional: any, omittedItems: string[]) => {
   const currentTime = new Date()
 
   const oneYearsTime = new Date()
@@ -33,6 +33,7 @@ const fullSync = async (gcal, db, additional, omittedItems) => {
 
   const eventsResponse = await calendar.events.list(
     {
+      // @ts-ignore
       calendarId: gcal,
       timeMin: currentTime,
       timeMax: oneYearsTime,
@@ -41,8 +42,9 @@ const fullSync = async (gcal, db, additional, omittedItems) => {
       singleEvents: true
     }
   )
+  // @ts-ignore
   const events = eventsResponse.data.items
-  events.map(async event => {
+  events.map(async (event: any) => {
     let start = event.start.dateTime
     let end = event.end.dateTime
     if(event.start.date) {
@@ -97,7 +99,7 @@ const fullSync = async (gcal, db, additional, omittedItems) => {
  * @param {string[]} omittedItems The Google Calendars event ids ommited from syncing - to prevent infinite sync loops
  * @returns {Promise<void>}
  */
-const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedItems) => {
+const syncOnGCalUpdate = async (gcal: string, db: string, additional: any, lastUpdateTime: Date, omittedItems: string[]) => {
   const currentTime = new Date()
   
   const oneYearsTime = new Date()
@@ -106,6 +108,7 @@ const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedIte
   
   const eventsResponse = await calendar.events.list(
     {
+      // @ts-ignore
       calendarId: gcal,
       timeMin: currentTime,
       timeMax: oneYearsTime,
@@ -116,8 +119,9 @@ const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedIte
       showDeleted: true
     }
   )
+  // @ts-ignore
   const events = eventsResponse.data.items
-  events.map(async event => {
+  events.map(async (event: any) => {
     let start = event.start.dateTime
     let end = event.end.dateTime
     if(event.start.date) {
@@ -175,7 +179,7 @@ const syncOnGCalUpdate = async (gcal, db, additional, lastUpdateTime, omittedIte
  * @param {string[]} omittedItems Ids of items to be omitted from syncing - to prevent infinite sync loops
  * @returns {Promise<void>}
  */
-const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) => {
+const syncOnNotionUpdateAndMarkDone = async (db: string, lastUpdateTime: Date, omittedItems: string[]) => {
   const oneYearsTime = new Date()
   oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
   oneYearsTime.setDate(oneYearsTime.getDate() - 1)
@@ -190,12 +194,13 @@ const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) =
     }
   })
 
-  const arr = []
+  const arr: any[] = []
   response.results.map(item => {
-    if(omittedItems.find(item => item == item.id)) return
+    if(omittedItems.find(oItem => oItem == item.id)) return
 
     arr.push({
       id: item.id,
+      // @ts-ignore
       ...item.properties
     })
   })
@@ -203,7 +208,7 @@ const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) =
     arr.map(async item => {
       const gcalID = item[dbs[db].gcalID].rich_text[0].plain_text.split("$")
 
-      let startDateFormat = new Date(item[dbs[db].date].date.start)
+      let startDateFormat: Date | string = new Date(item[dbs[db].date].date.start)
       // why is January defined as 0 in .getMonth() ??? WTF ECMAScript! took me a day to figure out
       startDateFormat = startDateFormat.getFullYear() + '-' + String(startDateFormat.getMonth() + 1).padStart(2, '0') + '-' + String(startDateFormat.getDate()).padStart(2, '0')
       const start = item[dbs[db].date].date.end ? item[dbs[db].date].date.start.match(/(\d){4}-(\d){2}-(\d){2}\W/) ? {
@@ -216,7 +221,7 @@ const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) =
         date: startDateFormat,
         timeZone: process.env.TZ
       }
-      let endDateFormat = new Date(item[dbs[db].date].date.start)
+      let endDateFormat: Date | string = new Date(item[dbs[db].date].date.start)
       endDateFormat.setDate(endDateFormat.getDate() + 1)
       endDateFormat = endDateFormat.getFullYear() + '-' + String(endDateFormat.getMonth() + 1).padStart(2, '0') + '-' + String(endDateFormat.getDate()).padStart(2, '0')
       const end = item[dbs[db].date].date.end ? item[dbs[db].date].date.end.match(/(\d){4}-(\d){2}-(\d){2}\W/) ? {
@@ -254,7 +259,7 @@ const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) =
           {
             property: dbs[db].date,
             date: {
-              on_or_before: lastUpdateTime
+              on_or_before: lastUpdateTime.toISOString()
             }
           },
           {
@@ -277,10 +282,10 @@ const syncOnNotionUpdateAndMarkDone = async (db, lastUpdateTime, omittedItems) =
  */
 const updateLoop = async () => {
   let i = 1
-  let j = process.env.SYNC_INTERVAL
-  const fullDay = 1440 / process.env.SYNC_INTERVAL
+  let j = Number(process.env.SYNC_INTERVAL)
+  const fullDay = 1440 / Number(process.env.SYNC_INTERVAL)
   let updateTime = new Date()
-  let updateMins = process.env.SYNC_INTERVAL
+  let updateMins = Number(process.env.SYNC_INTERVAL)
   let updateHrs = 0
   if(updateMins > 60) {
     updateHrs = Math.floor(updateMins / 60)
@@ -297,7 +302,7 @@ const updateLoop = async () => {
   while(true) {
     const currentTime = new Date()
 
-    if(j == process.env.SYNC_INTERVAL) {
+    if(j == Number(process.env.SYNC_INTERVAL)) {
       // check for full day to execute full-day-sync
       if(i < fullDay) {
         if(currentTime.getSeconds() == 30) {
@@ -347,7 +352,7 @@ log(2, 'Executing full sync on all Google Calendars...')
 const fullSyncResponse = gcals.map(async calendar => await fullSync(calendar.id, calendar.notionDB, calendar.additional, []))
 Promise.all(fullSyncResponse).then(async () => {
   log(2, 'Done!')
-  let delay = new Date()
+  let delay: Date | number = new Date()
   delay = 60000 - delay.getSeconds() * 1000 + delay.getMilliseconds()
   await sleep(delay)
   log(2, 'Entering update loop')

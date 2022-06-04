@@ -6,8 +6,32 @@ import { createSpinner } from 'nanospinner'
 import { Client } from '@notionhq/client'
 import Joi from 'joi'
 
-import dbs from '../config/dbs.js'
-import gcals from '../config/gcal-sync.js'
+interface dbsConfig {
+  [key: string]: {
+    title: string
+    description: string
+    date: string
+    location: string
+    meetingURL: string
+    lastEdited: string
+    gcalID: string
+    eventEnded: string
+    additional: {
+      [key: string]: any
+    }
+  }
+}
+
+interface gcalConfig {
+  id: string,
+  notionDB: string,
+  additional: {
+    [key: string]: any
+  }
+}
+
+const dbs: dbsConfig = require('../config/dbs.js')
+const gcals: gcalConfig[] = require('../config/gcal-sync.js')
 
 dotenv.config()
 
@@ -42,7 +66,7 @@ console.log(
  * @param {any} text The message test
  * @param  {...any} moreText More text for the log message
  */
-const log = (level, text, ...moreText) => {
+const log = (level: number, text: any, ...moreText: any) => {
   let logLevel
 
   switch (level) {
@@ -84,8 +108,14 @@ const dbsSchema = Joi.object({
   additional: Joi.object().required()
 })
 
+interface dbSettings {
+  [key: string]: {
+    syncToGCal: boolean
+  }
+}
+
 const dbKeys = Object.keys(dbs)
-const dbSettings = {}
+const dbSettings: dbSettings = {}
 dbKeys.forEach((key) => {
   const { error } = dbsSchema.validate(dbs[key])
   if(error) {
@@ -104,11 +134,10 @@ const gcalsSchema = Joi.object({
   additional: Joi.object().required()
 })
 
-const gcalKeys = Object.keys(gcals)
-gcalKeys.forEach((key) => {
-  const { error } = gcalsSchema.validate(gcals[key])
+gcals.map((_, index) => {
+  const { error } = gcalsSchema.validate(gcals[index])
   if(error) {
-    log(0, chalk.bgGreen('gcal-sync.json') + ' > ' + chalk.bgBlue('Index: ' + key) + ' > ' + chalk.bgRedBright(error.details[0].message))
+    log(0, chalk.bgGreen('gcal-sync.json') + ' > ' + chalk.bgBlue('Index: ' + index) + ' > ' + chalk.bgRedBright(error.details[0].message))
     process.exit(1)
   }
 })
@@ -128,7 +157,7 @@ const sleep = (ms = 1000) => new Promise((r) => setTimeout(r, ms))
  * @param {string} eventId The id of the Google Calendar Event
  * @returns {Promise<QueryDatabaseResponse>}
  */
-const notionFindPageByTitle = async (db, title, gcalId, eventId) => {
+const notionFindPageByTitle = async (db: string, title: string, gcalId: string, eventId: string) => {
   if(!dbs[db]) throw 'Database not defined'
 
   if(dbs[db].gcalID != null) {
@@ -154,6 +183,10 @@ const notionFindPageByTitle = async (db, title, gcalId, eventId) => {
   }
 }
 
+interface eventProperties {
+  [key: string]: any
+}
+
 /**
  * Helper function for generating page properties for notion
  * @param {string} db
@@ -165,14 +198,25 @@ const notionFindPageByTitle = async (db, title, gcalId, eventId) => {
  * @param {string} meetingURL
  * @param {string} gcalID
  * @param {string} evntID
- * @param {string} additionalProps
+ * @param {any} additionalProps
  * @yields {*}
  */
-const notionEvent = (db, title, description, startDate, endDate, location, meetingURL, gcalID, evntID, additionalProps) => {
+const notionEvent = (
+  db: string,
+  title: string,
+  description: string,
+  startDate: string | Date,
+  endDate: string | Date,
+  location: string,
+  meetingURL: string,
+  gcalID: string,
+  evntID: string,
+  additionalProps: any
+) => {
   if(!dbs[db]) throw 'Database not defined'
   if(!title) throw 'There has to be a title set'
 
-  let properties = {
+  let properties: eventProperties = {
     [dbs[db].title]: {
       title: [
         { type: 'text', text: { content: title } }
@@ -264,10 +308,21 @@ const notionEvent = (db, title, description, startDate, endDate, location, meeti
  * @param {string} meetingURL The URL for an attached meeting
  * @param {string} gcalID The id of the Google Calendar
  * @param {string} eventID The id of the Google Calendar event
- * @param {*} additionalProps Additional props following https://developers.notion.com/reference/property-value-object
+ * @param {any} additionalProps Additional props following https://developers.notion.com/reference/property-value-object
  * @returns {Promise<CreatePageResponse>}
  */
-const notionCreateEvent = async (db, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps) => {
+const notionCreateEvent = async (
+  db: string,
+  title: string,
+  description: string,
+  startDate: string | Date,
+  endDate: string | Date,
+  location: string,
+  meetingURL: string,
+  gcalID: string,
+  eventID: string,
+  additionalProps: any
+) => {
   const properties = notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps)
 
   return await notion.pages.create({
@@ -289,10 +344,22 @@ const notionCreateEvent = async (db, title, description, startDate, endDate, loc
  * @param {string} meetingURL The URL for an attached meeting
  * @param {string} gcalID The id of the Google Calendar
  * @param {string} eventID The id of the Google Calendar event
- * @param {*} additionalProps Additional props following https://developers.notion.com/reference/property-value-object
+ * @param {any} additionalProps Additional props following https://developers.notion.com/reference/property-value-object
  * @returns {Promise<UpdatePageResponse>}
  */
-const notionUpdateEvent = async (db, pid, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps) => {
+const notionUpdateEvent = async (
+  db: string,
+  pid: string,
+  title: string,
+  description: string,
+  startDate: string | Date,
+  endDate: string | Date,
+  location: string,
+  meetingURL: string,
+  gcalID: string,
+  eventID: string,
+  additionalProps: any
+) => {
   const properties = notionEvent(db, title, description, startDate, endDate, location, meetingURL, gcalID, eventID, additionalProps)
 
   return await notion.pages.update({
@@ -308,8 +375,8 @@ const notionUpdateEvent = async (db, pid, title, description, startDate, endDate
  * @param {boolean} ended The value of the cehckbox to be set
  * @returns {(Promise<UpdatePageResponse> | void)}
  */
-const notionUpdateEventEnded = async (db, pid, ended) => {
-  const properties = {}
+const notionUpdateEventEnded = async (db: string, pid: string, ended: boolean) => {
+  const properties: eventProperties = {}
 
   if(dbs[db].eventEnded != null) {
     properties[dbs[db].eventEnded] = {
@@ -328,7 +395,7 @@ const notionUpdateEventEnded = async (db, pid, ended) => {
  * @param {string} pid The id of the page in Notion to be deleted
  * @returns {Promise<UpdatePageResponse>}
  */
-const notionDeleteEvent = async (pid) => {
+const notionDeleteEvent = async (pid: string) => {
   return await notion.pages.update({
     page_id: pid,
     archived: true

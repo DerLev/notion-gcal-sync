@@ -1,5 +1,7 @@
 # notion-gcal-sync
 
+[![header image](https://drive.google.com/uc?export=view&id=143D58VwenqsjLYr7BKbQNtBfaxEP_g9F)](https://github.com/DerLev/notion-gcal-sync/)
+
 [![wiki](https://drive.google.com/uc?export=view&id=14APbG2vXF1r1zAwPLYOyQDjoSeE5cdYs)](https://github.com/DerLev/notion-gcal-sync/wiki)<br />
 [**To-Do list / Roadmap**](https://derlev.notion.site/9f2b23bd9bac4151a86ba89a86fade8a?v=30ff4ab2347343f5a60d25d53b22c278)
 

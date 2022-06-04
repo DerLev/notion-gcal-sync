@@ -1,5 +1,7 @@
 # notion-gcal-sync
 
+[![CI](https://github.com/DerLev/notion-gcal-sync/actions/workflows/integration.yml/badge.svg?branch=main&event=push)](https://github.com/DerLev/notion-gcal-sync/actions/workflows/integration.yml)
+
 [![header image](https://drive.google.com/uc?export=view&id=143D58VwenqsjLYr7BKbQNtBfaxEP_g9F)](https://github.com/DerLev/notion-gcal-sync/)
 
 [![wiki](https://drive.google.com/uc?export=view&id=14APbG2vXF1r1zAwPLYOyQDjoSeE5cdYs)](https://github.com/DerLev/notion-gcal-sync/wiki)<br />

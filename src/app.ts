@@ -284,7 +284,7 @@ const updateLoop = async () => {
   let i = 1
   let j = Number(process.env.SYNC_INTERVAL)
   const fullDay = 1440 / Number(process.env.SYNC_INTERVAL)
-  let updateTime = new Date()
+  const updateTime = new Date()
   let updateMins = Number(process.env.SYNC_INTERVAL)
   let updateHrs = 0
   if(updateMins > 60) {
@@ -299,6 +299,7 @@ const updateLoop = async () => {
   let oldOmittedGCalItems = omittedGCalItems
   let oldOmittedNotionItems = omittedNotionItems
 
+  // eslint-disable-next-line no-constant-condition
   while(true) {
     const currentTime = new Date()
 

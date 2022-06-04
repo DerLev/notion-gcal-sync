@@ -30,8 +30,10 @@ interface gcalConfig {
   }
 }
 
+/* eslint-disable @typescript-eslint/no-var-requires */
 const dbs: dbsConfig = require('../config/dbs.js')
 const gcals: gcalConfig[] = require('../config/gcal-sync.js')
+/* eslint-enable */
 
 dotenv.config()
 
@@ -216,7 +218,7 @@ const notionEvent = (
   if(!dbs[db]) throw 'Database not defined'
   if(!title) throw 'There has to be a title set'
 
-  let properties: eventProperties = {
+  const properties: eventProperties = {
     [dbs[db].title]: {
       title: [
         { type: 'text', text: { content: title } }

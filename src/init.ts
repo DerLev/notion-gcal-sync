@@ -37,38 +37,13 @@ const gcals: gcalConfig[] = require('../config/gcal-sync.js')
 
 dotenv.config()
 
-// Initializing OAuth2 and creating access token
-const { OAuth2 } = google.auth
-const oAuth2Client = new OAuth2( process.env.GOOGLE_CID, process.env.GOOGLE_CS )
-oAuth2Client.setCredentials({
-  refresh_token: process.env.GOOGLE_ACCOUNT_REFRESH_TOKEN
-})
-
-// Initializing calendar object with OAuth2 client
-const calendar = google.calendar({ version: 'v3', auth: oAuth2Client })
-
-// Initializing Notion application with set token
-const notion = new Client({ auth: process.env.NOTION_TOKEN })
-
-// Printing title
-console.log(
-  chalk.blue(
-    figlet.textSync(
-      'Notion GCal Sync',
-      {
-        horizontalLayout: "controlled smushing"
-      }
-    )
-  )
-)
-
 /**
  * Prints out a log message with date, time and log-level
  * @param {number} level The log-level - 0: critical; 1: warning; 2: info; 3: output/debug
  * @param {any} text The message test
  * @param  {...any} moreText More text for the log message
  */
-const log = (level: number, text: any, ...moreText: any) => {
+ const log = (level: number, text: any, ...moreText: any) => {
   let logLevel
 
   switch (level) {
@@ -92,6 +67,35 @@ const log = (level: number, text: any, ...moreText: any) => {
 
   console.log(logLevel, chalk.gray(time.toLocaleString()), text, ...moreText)
 }
+
+// check environment variables
+const env = {
+  googleClientId: process.env.GOOGLE_CID,
+  googleClientSecret: process.env.GOOGLE_CS,
+  googleAccountRefreshToken: process.env.GOOGLE_ACCOUNT_REFRESH_TOKEN,
+  timezone: process.env.TZ,
+  notionToken: process.env.NOTION_TOKEN,
+  syncInterval: process.env.SYNC_INTERVAL
+}
+
+const envSchema = Joi.object({
+  googleClientId: Joi.string().required(),
+  googleClientSecret: Joi.string().required(),
+  googleAccountRefreshToken: Joi.string().required(),
+  timezone: Joi.string().required(),
+  notionToken: Joi.string().required(),
+  syncInterval: Joi.number().required().integer().greater(0).less(1440).positive()
+})
+
+// enclosed in a function to eliminate variable conflicts
+const validateEnv = () => {
+  const { error } = envSchema.validate(env)
+  if(error) {
+    log(0, chalk.bgGreen('.env'), '>', chalk.bgRedBright(error.details[0].message))
+    process.exit(1)
+  }
+}
+validateEnv()
 
 // check dbs.js file for correct formatting
 const dbsSchema = Joi.object({
@@ -121,7 +125,7 @@ const dbSettings: dbSettings = {}
 dbKeys.forEach((key) => {
   const { error } = dbsSchema.validate(dbs[key])
   if(error) {
-    log(0, chalk.bgGreen('dbs.json') + ' > ' + chalk.bgBlue(key) + ' > ' + chalk.bgRedBright(error.details[0].message))
+    log(0, chalk.bgGreen('dbs.json'), '>', chalk.bgBlue(key), '>', chalk.bgRedBright(error.details[0].message))
     process.exit(1)
   }
   dbSettings[key] = {
@@ -139,10 +143,35 @@ const gcalsSchema = Joi.object({
 gcals.map((_, index) => {
   const { error } = gcalsSchema.validate(gcals[index])
   if(error) {
-    log(0, chalk.bgGreen('gcal-sync.json') + ' > ' + chalk.bgBlue('Index: ' + index) + ' > ' + chalk.bgRedBright(error.details[0].message))
+    log(0, chalk.bgGreen('gcal-sync.json'), '>', chalk.bgBlue('Index: ' + index), '>', chalk.bgRedBright(error.details[0].message))
     process.exit(1)
   }
 })
+
+// Initializing OAuth2 and creating access token
+const { OAuth2 } = google.auth
+const oAuth2Client = new OAuth2( process.env.GOOGLE_CID, process.env.GOOGLE_CS )
+oAuth2Client.setCredentials({
+  refresh_token: process.env.GOOGLE_ACCOUNT_REFRESH_TOKEN
+})
+
+// Initializing calendar object with OAuth2 client
+const calendar = google.calendar({ version: 'v3', auth: oAuth2Client })
+
+// Initializing Notion application with set token
+const notion = new Client({ auth: process.env.NOTION_TOKEN })
+
+// Printing title
+console.log(
+  chalk.blue(
+    figlet.textSync(
+      'Notion GCal Sync',
+      {
+        horizontalLayout: "controlled smushing"
+      }
+    )
+  )
+)
 
 /**
  * A sleeper function

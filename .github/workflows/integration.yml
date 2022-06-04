@@ -1,0 +1,29 @@
+name: CI
+on:
+  push:
+    # branches:
+    #   - "main"
+    paths-ignore:
+      - '**.md'
+  pull_request:
+    branches:
+      - "main"
+    paths-ignore:
+      - '**.md'
+
+jobs:
+  build:
+    name: Lint & Build
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.event.head_commit.message, 'wip:') }}
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: "yarn"
+      - name: Install dependencies
+        run: yarn
+      - name: Lint and build app
+        run: yarn build

@@ -8,13 +8,14 @@ on:
       - '**.md'
 
 jobs:
-  build:
+  lint-and-build:
     name: Lint & Build
     runs-on: ubuntu-latest
     if: ${{ !startsWith(github.event.head_commit.message, 'wip:') }}
     steps:
-      - uses: actions/checkout@v3
-      - name: Setup Node.js environment
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Setup NodeJS environment
         uses: actions/setup-node@v3
         with:
           node-version: 16

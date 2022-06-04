@@ -13,6 +13,7 @@ env:
 
 jobs:
   build-and-push-image:
+    name: Build & push image to ghcr.io
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -29,7 +30,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Docker
+      - name: Extract metadata for Docker
         id: meta
         uses: docker/metadata-action@v4
         with:

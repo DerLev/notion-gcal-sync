@@ -217,7 +217,7 @@ const syncOnNotionUpdateAndMarkDone = async (db: string, lastUpdateTime: Date, o
   const response = await notion.databases.query({
     database_id: db,
     filter: {
-      property: dbs[db].lastEdited,
+      timestamp: 'last_edited_time',
       last_edited_time: {
         after: lastUpdateTime.toISOString()
       }

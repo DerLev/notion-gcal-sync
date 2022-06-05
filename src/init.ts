@@ -6,6 +6,18 @@ import { createSpinner } from 'nanospinner'
 import { Client } from '@notionhq/client'
 import Joi from 'joi'
 
+// Printing title
+console.log(
+  chalk.blue(
+    figlet.textSync(
+      'Notion GCal Sync',
+      {
+        horizontalLayout: "controlled smushing"
+      }
+    )
+  )
+)
+
 interface dbsConfig {
   [key: string]: {
     title: string
@@ -13,7 +25,6 @@ interface dbsConfig {
     date: string
     location: string
     meetingURL: string
-    lastEdited: string
     gcalID: string
     eventEnded: string
     additional: {
@@ -104,12 +115,7 @@ const dbsSchema = Joi.object({
   date: Joi.string().required(),
   location: Joi.string().allow(null).required(),
   meetingURL: Joi.string().allow(null).required(),
-  lastEdited: Joi.string().allow(null).required(),
-  gcalID: Joi.when('lastEdited', {
-    is: Joi.string(),
-    then: Joi.string().required(),
-    otherwise: Joi.valid(null).required()
-  }),
+  gcalID: Joi.string().allow(null).required(),
   eventEnded: Joi.string().allow(null).required(),
   additional: Joi.object().required()
 })
@@ -129,7 +135,7 @@ dbKeys.forEach((key) => {
     process.exit(1)
   }
   dbSettings[key] = {
-    syncToGCal: dbs[key].lastEdited != null ? true : false
+    syncToGCal: dbs[key].gcalID != null ? true : false
   }
 })
 
@@ -160,18 +166,6 @@ const calendar = google.calendar({ version: 'v3', auth: oAuth2Client })
 
 // Initializing Notion application with set token
 const notion = new Client({ auth: process.env.NOTION_TOKEN })
-
-// Printing title
-console.log(
-  chalk.blue(
-    figlet.textSync(
-      'Notion GCal Sync',
-      {
-        horizontalLayout: "controlled smushing"
-      }
-    )
-  )
-)
 
 /**
  * A sleeper function

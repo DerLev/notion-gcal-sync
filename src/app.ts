@@ -210,6 +210,8 @@ const syncOnGCalUpdate = async (gcal: string, db: string, additional: any, lastU
  * @returns {Promise<void>}
  */
 const syncOnNotionUpdateAndMarkDone = async (db: string, lastUpdateTime: Date, omittedItems: string[]) => {
+  if(!dbs[db].gcalID) return
+
   const oneYearsTime = new Date()
   oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
   oneYearsTime.setDate(oneYearsTime.getDate() - 1)
@@ -236,7 +238,16 @@ const syncOnNotionUpdateAndMarkDone = async (db: string, lastUpdateTime: Date, o
   })
   if(arr.length) {
     arr.map(async item => {
-      const gcalID = item[dbs[db].gcalID].rich_text[0].plain_text.split("$")
+      if(!item[dbs[db].date].date.start) return
+
+      let gcalID: string[] = ["", ""]
+      let createEvent = true
+      // @ts-ignore see condition at top of function
+      if(item[dbs[db].gcalID].rich_text.length) {
+        createEvent = false
+        // @ts-ignore see condition at top of function
+        gcalID = item[dbs[db].gcalID].rich_text[0].plain_text.split("$")
+      }
 
       let startDateFormat: Date | string = new Date(item[dbs[db].date].date.start)
       // why is January defined as 0 in .getMonth() ??? WTF ECMAScript! took me a day to figure out
@@ -265,18 +276,56 @@ const syncOnNotionUpdateAndMarkDone = async (db: string, lastUpdateTime: Date, o
         timeZone: process.env.TZ
       }
 
-      await calendar.events.update({
-        calendarId: gcalID[0],
-        eventId: gcalID[1],
-        requestBody: {
-          start: start,
-          end: end,
-          summary: item[dbs[db].title].title[0].plain_text,
-          location: item[dbs[db].location].rich_text[0] ? item[dbs[db].location].rich_text[0].plain_text : "",
-          description: item[dbs[db].description].rich_text[0] ? item[dbs[db].description].rich_text[0].plain_text : ""
-        }
-      })
-      omittedGCalItems.push(gcalID[1])
+      if(createEvent == true) {
+        if(dbSettings[db].createOnGCal != true) return
+        const targetGCalId = dbSettings[db].targetGCalId
+
+        const additionalProps = gcals.find((cal) => cal.id == targetGCalId)
+
+        const res = await calendar.events.insert({
+          calendarId: targetGCalId,
+          requestBody: {
+            start: start,
+            end: end,
+            summary: item[dbs[db].title].title[0].plain_text,
+            // @ts-ignore see condition below
+            location: dbs[db].location ? item[dbs[db].location].rich_text[0] ? item[dbs[db].location].rich_text[0].plain_text : "" : "",
+            // @ts-ignore see condition below
+            description: dbs[db].description ? item[dbs[db].description].rich_text[0] ? item[dbs[db].description].rich_text[0].plain_text : "" : ""
+          }
+        })
+        await notionUpdateEvent(
+          db,
+          item.id,
+          item[dbs[db].title].title[0].plain_text,
+          // @ts-ignore see condition below
+          dbs[db].description ? item[dbs[db].description].rich_text[0] ? item[dbs[db].description].rich_text[0].plain_text : "" : "",
+          item[dbs[db].date].date.start,
+          item[dbs[db].date].date.end,
+          // @ts-ignore see condition below
+          dbs[db].location ? item[dbs[db].location].rich_text[0] ? item[dbs[db].location].rich_text[0].plain_text : "" : "",
+          "",
+          targetGCalId,
+          res.data.id || "",
+          additionalProps?.additional
+        )
+        omittedGCalItems.push(res.data.id || "")
+      } else {
+        await calendar.events.update({
+          calendarId: gcalID[0],
+          eventId: gcalID[1],
+          requestBody: {
+            start: start,
+            end: end,
+            summary: item[dbs[db].title].title[0].plain_text,
+            // @ts-ignore see condition below
+            location: dbs[db].location ? item[dbs[db].location].rich_text[0] ? item[dbs[db].location].rich_text[0].plain_text : "" : "",
+            // @ts-ignore see condition below
+            description: dbs[db].description ? item[dbs[db].description].rich_text[0] ? item[dbs[db].description].rich_text[0].plain_text : "" : ""
+          }
+        })
+        omittedGCalItems.push(gcalID[1])
+      }
     })
   }
 
@@ -293,6 +342,7 @@ const syncOnNotionUpdateAndMarkDone = async (db: string, lastUpdateTime: Date, o
             }
           },
           {
+            // @ts-ignore see condition above
             property: dbs[db].eventEnded,
             checkbox: {
               does_not_equal: true

@@ -21,14 +21,20 @@ console.log(
 interface dbsConfig {
   [key: string]: {
     title: string
-    description: string
+    description: string | null
     date: string
-    location: string
-    meetingURL: string
-    gcalID: string
-    eventEnded: string
+    location: string | null
+    meetingURL: string | null
+    gcalID: string | null
+    eventEnded: string | null
     additional: {
       [key: string]: any
+    }
+    config: {
+      createEvents: {
+        enabled: boolean
+        targetGCalId: string | null
+      }
     }
   }
 }
@@ -117,12 +123,24 @@ const dbsSchema = Joi.object({
   meetingURL: Joi.string().allow(null).required(),
   gcalID: Joi.string().allow(null).required(),
   eventEnded: Joi.string().allow(null).required(),
-  additional: Joi.object().required()
+  additional: Joi.object().required(),
+  config: Joi.object({
+    createEvents: Joi.object({
+      enabled: Joi.boolean().required(),
+      targetGCalId: Joi.when('config.createEvents.enabled', {
+        is: true,
+        then: Joi.string().required(),
+        otherwise: Joi.valid(null).required()
+      }),
+    })
+  })
 })
 
 interface dbSettings {
   [key: string]: {
     syncToGCal: boolean
+    createOnGCal: boolean
+    targetGCalId: string
   }
 }
 
@@ -135,7 +153,9 @@ dbKeys.forEach((key) => {
     process.exit(1)
   }
   dbSettings[key] = {
-    syncToGCal: dbs[key].gcalID != null ? true : false
+    syncToGCal: dbs[key].gcalID != null ? true : false,
+    createOnGCal: dbs[key].config.createEvents.enabled,
+    targetGCalId: dbs[key].config.createEvents.targetGCalId || ""
   }
 })
 
@@ -189,6 +209,7 @@ const notionFindPageByTitle = async (db: string, title: string, gcalId: string, 
     return await notion.databases.query({
       database_id: db,
       filter: {
+        // @ts-ignore see condition above
         property: dbs[db].gcalID,
         rich_text: {
           equals: gcalId + '$' + eventId
@@ -255,11 +276,13 @@ const notionEvent = (
 
   // TODO: convert rich-text from gcal to rich-text for notion
   if(dbs[db].description != null) {
+    // @ts-ignore see condition above
     if(description) properties[dbs[db].description] = {
       rich_text: [
         { type: 'text', text: { content: description } }
       ]
     }
+    // @ts-ignore see condition above
     else properties[dbs[db].description] = {
       rich_text: [
         { type: 'text', text: { content: '' } }
@@ -278,11 +301,13 @@ const notionEvent = (
   }
 
   if(dbs[db].location != null) {
+    // @ts-ignore see condition above
     if(location) properties[dbs[db].location] = {
       rich_text: [
         { type: 'text', text: { content: location } }
       ]
     }
+    // @ts-ignore see condition above
     else properties[dbs[db].location] = {
       rich_text: [
         { type: 'text', text: { content: '' } }
@@ -291,20 +316,24 @@ const notionEvent = (
   }
 
   if(dbs[db].meetingURL != null) {
+    // @ts-ignore see condition above
     if(meetingURL) properties[dbs[db].meetingURL] = {
       url: meetingURL
     }
+    // @ts-ignore see condition above
     else properties[dbs[db].meetingURL] = {
       url: null
     }
   }
 
   if(dbs[db].gcalID != null) {
+    // @ts-ignore see condition above
     if(gcalID && evntID) properties[dbs[db].gcalID] = {
       rich_text: [
         { type: 'text', text: { content: gcalID + '$' + evntID } }
       ]
     }
+    // @ts-ignore see condition above
     else properties[dbs[db].gcalID] = {
       rich_text: [
         { type: 'text', text: { content: '' } }
@@ -404,6 +433,7 @@ const notionUpdateEventEnded = async (db: string, pid: string, ended: boolean) =
   const properties: eventProperties = {}
 
   if(dbs[db].eventEnded != null) {
+    // @ts-ignore see condition above
     properties[dbs[db].eventEnded] = {
       checkbox: ended
     }

@@ -99,7 +99,7 @@ const fullSync = async (gcal: string, db: string, additional: any, omittedItems:
       filter: {
         and: [
           {
-            property: dbs[db].lastEdited,
+            timestamp: 'last_edited_time',
             last_edited_time: {
               before: notionCurrentTime.toISOString()
             }

@@ -44,7 +44,7 @@ const fullSync = async (gcal: string, db: string, additional: any, omittedItems:
   )
   // @ts-ignore
   const events = eventsResponse.data.items
-  events.map(async (event: any) => {
+  const eventsMap = await events.map(async (event: any) => {
     let start = event.start.dateTime
     let end = event.end.dateTime
     if(event.start.date) {
@@ -87,6 +87,36 @@ const fullSync = async (gcal: string, db: string, additional: any, omittedItems:
       additional
     )
     omittedNotionItems.push(response.id)
+  })
+
+  Promise.all(eventsMap).then(async () => {
+    const notionCurrentTime = currentTime
+    notionCurrentTime.setSeconds(0)
+    notionCurrentTime.setMilliseconds(0)
+  
+    const notionResponse = await notion.databases.query({
+      database_id: db,
+      filter: {
+        and: [
+          {
+            property: dbs[db].lastEdited,
+            last_edited_time: {
+              before: notionCurrentTime.toISOString()
+            }
+          },
+          {
+            property: dbs[db].date,
+            date: {
+              after: currentTime.toISOString()
+            }
+          }
+        ]
+      }
+    })
+
+    notionResponse.results.map(async (page) => {
+      return await notionDeleteEvent(page.id)
+    })
   })
 }
 

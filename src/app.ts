@@ -11,7 +11,7 @@ import {
   notionUpdateEventEnded,
   notionDeleteEvent,
   notionFindPageByTitle
-} from '@src/init'
+} from './init'
 
 let omittedNotionItems: string[] = []
 let omittedGCalItems: string[] = []

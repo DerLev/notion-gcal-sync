@@ -8,9 +8,6 @@
     "checkJs": false,
     "resolveJsonModule": true,
     "baseUrl": "src",
-    "paths": {
-      "@src/*": [ "*" ],
-    }
   },
   "include": ["src/**/*", "types/**/*"],
   "exclude": ["node_modules"]

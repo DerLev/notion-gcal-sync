@@ -27,6 +27,7 @@ interface dbsConfig {
     meetingURL: string | null
     gcalID: string | null
     eventEnded: string | null
+    isGCal: string | null
     additional: {
       [key: string]: any
     }
@@ -34,6 +35,10 @@ interface dbsConfig {
       createEvents: {
         enabled: boolean
         targetGCalId: string | null
+      }
+      excludeNonGCal: {
+        enabled: boolean
+        polarity: boolean | null
       }
     }
   }
@@ -123,16 +128,25 @@ const dbsSchema = Joi.object({
   meetingURL: Joi.string().allow(null).required(),
   gcalID: Joi.string().allow(null).required(),
   eventEnded: Joi.string().allow(null).required(),
+  isGCal: Joi.string().allow(null).required(),
   additional: Joi.object().required(),
   config: Joi.object({
     createEvents: Joi.object({
       enabled: Joi.boolean().required(),
-      targetGCalId: Joi.when('config.createEvents.enabled', {
-        is: true,
+      targetGCalId: Joi.when('enabled', {
+        is: Joi.allow(true),
         then: Joi.string().required(),
         otherwise: Joi.valid(null).required()
       }),
-    })
+    }),
+    excludeNonGCal: Joi.object({
+      enabled: Joi.when('....isGCal', {
+        is: Joi.string(),
+        then: Joi.valid(true).required(),
+        otherwise: Joi.valid(false).required()
+      }),
+      polarity: Joi.boolean().required(),
+    }),
   })
 })
 
@@ -141,6 +155,8 @@ interface dbSettings {
     syncToGCal: boolean
     createOnGCal: boolean
     targetGCalId: string
+    excludeNonGCal: boolean
+    excludePolarity: boolean
   }
 }
 
@@ -150,12 +166,15 @@ dbKeys.forEach((key) => {
   const { error } = dbsSchema.validate(dbs[key])
   if(error) {
     log(0, chalk.bgGreen('dbs.json'), '>', chalk.bgBlue(key), '>', chalk.bgRedBright(error.details[0].message))
+    log(3, JSON.stringify(error, null, 2))
     process.exit(1)
   }
   dbSettings[key] = {
     syncToGCal: dbs[key].gcalID != null ? true : false,
     createOnGCal: dbs[key].config.createEvents.enabled,
-    targetGCalId: dbs[key].config.createEvents.targetGCalId || ""
+    targetGCalId: dbs[key].config.createEvents.targetGCalId || "",
+    excludeNonGCal: dbs[key].config.excludeNonGCal.enabled,
+    excludePolarity: dbs[key].config.excludeNonGCal.polarity || false
   }
 })
 
@@ -338,6 +357,13 @@ const notionEvent = (
       rich_text: [
         { type: 'text', text: { content: '' } }
       ]
+    }
+  }
+
+  if(dbSettings[db].excludeNonGCal == true) {
+    // @ts-ignore see condition above
+    properties[dbs[db].isGCal] = {
+      checkbox: dbSettings[db].excludePolarity
     }
   }
 

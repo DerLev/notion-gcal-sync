@@ -93,24 +93,35 @@ const fullSync = async (gcal: string, db: string, additional: any, omittedItems:
     const notionCurrentTime = currentTime
     notionCurrentTime.setSeconds(0)
     notionCurrentTime.setMilliseconds(0)
-  
+
+    const filters = [
+      {
+        timestamp: 'last_edited_time',
+        last_edited_time: {
+          before: notionCurrentTime.toISOString()
+        }
+      },
+      {
+        property: dbs[db].date,
+        date: {
+          after: currentTime.toISOString()
+        }
+      },
+    ]
+
+    if(dbSettings[db].excludeNonGCal == true) filters.push({
+      // @ts-ignore see condition above
+      property: dbs[db].isGCal,
+      checkbox: {
+        equals: dbSettings[db].excludePolarity
+      }
+    })
+
     const notionResponse = await notion.databases.query({
       database_id: db,
       filter: {
-        and: [
-          {
-            timestamp: 'last_edited_time',
-            last_edited_time: {
-              before: notionCurrentTime.toISOString()
-            }
-          },
-          {
-            property: dbs[db].date,
-            date: {
-              after: currentTime.toISOString()
-            }
-          }
-        ]
+        // @ts-ignore non-sense
+        and: filters
       }
     })
 
@@ -215,14 +226,29 @@ const syncOnNotionUpdateAndMarkDone = async (db: string, lastUpdateTime: Date, o
   const oneYearsTime = new Date()
   oneYearsTime.setFullYear(oneYearsTime.getFullYear() + 1)
   oneYearsTime.setDate(oneYearsTime.getDate() - 1)
-  
-  const response = await notion.databases.query({
-    database_id: db,
-    filter: {
+
+  const filters = [
+    {
       timestamp: 'last_edited_time',
       last_edited_time: {
         after: lastUpdateTime.toISOString()
       }
+    },
+  ]
+
+  if(dbSettings[db].excludeNonGCal == true) filters.push({
+    // @ts-ignore see condition above
+    property: dbs[db].isGCal,
+    checkbox: {
+      equals: dbSettings[db].excludePolarity
+    }
+  })
+
+  const response = await notion.databases.query({
+    database_id: db,
+    filter: {
+      // @ts-ignore non-sense
+      and: filters
     }
   })
 

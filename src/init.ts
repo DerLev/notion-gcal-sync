@@ -55,7 +55,11 @@ interface gcalConfig {
 /* eslint-disable @typescript-eslint/no-var-requires */
 const dbs: dbsConfig = require('../config/dbs.js')
 const gcals: gcalConfig[] = require('../config/gcal-sync.js')
+
+const packageJson = require('../package.json')
 /* eslint-enable */
+
+console.log(chalk.gray('v' + packageJson.version + ' – License: ' + packageJson.license))
 
 dotenv.config()
 
@@ -133,8 +137,8 @@ const dbsSchema = Joi.object({
   config: Joi.object({
     createEvents: Joi.object({
       enabled: Joi.boolean().required(),
-      targetGCalId: Joi.when('enabled', {
-        is: Joi.allow(true),
+      targetGCalId: Joi.when('..enabled', {
+        is: true,
         then: Joi.string().required(),
         otherwise: Joi.valid(null).required()
       }),
@@ -166,7 +170,6 @@ dbKeys.forEach((key) => {
   const { error } = dbsSchema.validate(dbs[key])
   if(error) {
     log(0, chalk.bgGreen('dbs.json'), '>', chalk.bgBlue(key), '>', chalk.bgRedBright(error.details[0].message))
-    log(3, JSON.stringify(error, null, 2))
     process.exit(1)
   }
   dbSettings[key] = {

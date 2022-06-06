@@ -2,7 +2,7 @@
   "name": "notion-gcal-sync",
   "version": "1.0.0",
   "description": "",
-  "main": "src/app.js",
+  "main": "build/app.js",
   "scripts": {
     "lint": "eslint . --ext .ts",
     "build": "eslint . --ext .ts && tsc",

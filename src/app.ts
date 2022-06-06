@@ -22,9 +22,10 @@ let omittedGCalItems: string[] = []
  * @param {string} db The id of the Notion database to sync to
  * @param {any} additional Additional fields following https://developers.notion.com/reference/property-value-object
  * @param {string[]} omittedItems Google Calendar event ids omitted from syncing - to prevent infinite sync loops
+ * @param {boolean} firstSync Whether the full sync should start the sync loop after finish
  * @returns {Promise<void>}
  */
-const fullSync = async (gcal: string, db: string, additional: any, omittedItems: string[]) => {
+const fullSync = async (gcal: string, db: string, additional: any, omittedItems: string[], firstSync: boolean) => {
   const currentTime = new Date()
 
   const oneYearsTime = new Date()
@@ -71,6 +72,7 @@ const fullSync = async (gcal: string, db: string, additional: any, omittedItems:
         additional
       )
       omittedNotionItems.push(response.id)
+      await sleep(666)
       return
     }
 
@@ -87,6 +89,7 @@ const fullSync = async (gcal: string, db: string, additional: any, omittedItems:
       additional
     )
     omittedNotionItems.push(response.id)
+    await sleep(666)
   })
 
   Promise.all(eventsMap).then(async () => {
@@ -126,8 +129,13 @@ const fullSync = async (gcal: string, db: string, additional: any, omittedItems:
     })
 
     notionResponse.results.map(async (page) => {
-      return await notionDeleteEvent(page.id)
+      await notionDeleteEvent(page.id)
+      await sleep(333)
+      return
     })
+    if(firstSync == true) {
+      startLoop()
+    }
   })
 }
 
@@ -192,6 +200,7 @@ const syncOnGCalUpdate = async (gcal: string, db: string, additional: any, lastU
         omittedNotionItems.push(response.id)
       }
       else await notionDeleteEvent(findResponse.results[0].id)
+      await sleep(666)
       return
     }
 
@@ -209,6 +218,7 @@ const syncOnGCalUpdate = async (gcal: string, db: string, additional: any, lastU
         additional
       )
       omittedNotionItems.push(response.id)
+      await sleep(666)
     }
   })
 }
@@ -439,7 +449,7 @@ const updateLoop = async () => {
         oldOmittedNotionItems = omittedNotionItems
         omittedNotionItems = []
         // full-sync from gcal to notion
-        gcals.map(calendar => fullSync(calendar.id, calendar.notionDB, calendar.additional, oldOmittedGCalItems))
+        gcals.map(calendar => fullSync(calendar.id, calendar.notionDB, calendar.additional, oldOmittedGCalItems, false))
         gcalUpdateTime = currentTime
         notionUpdateTime = currentTime
 
@@ -456,12 +466,16 @@ const updateLoop = async () => {
 
 console.log()
 log(2, 'Executing full sync on all Google Calendars...')
-const fullSyncResponse = gcals.map(async calendar => await fullSync(calendar.id, calendar.notionDB, calendar.additional, []))
-Promise.all(fullSyncResponse).then(async () => {
-  log(2, 'Done!')
-  let delay: Date | number = new Date()
-  delay = 60000 - delay.getSeconds() * 1000 + delay.getMilliseconds()
-  await sleep(delay)
-  log(2, 'Entering update loop')
-  await updateLoop()
-})
+gcals.map(async (calendar) => await fullSync(calendar.id, calendar.notionDB, calendar.additional, [], true))
+let doneSyncs = 0
+const startLoop = async () => {
+  if(doneSyncs < (gcals.length - 1)) doneSyncs++
+  else {
+    log(2, 'Done!')
+    let delay: Date | number = new Date()
+    delay = 60000 - delay.getSeconds() * 1000 + delay.getMilliseconds()
+    await sleep(delay)
+    log(2, 'Entering update loop')
+    await updateLoop()
+  }
+}

@@ -3,6 +3,7 @@ version: '3.8'
 services:
   notion-gcal-sync:
     image: ghcr.io/derlev/notion-gcal-sync:v1
+    container_name: notion-gcal-sync
     restart: unless-stopped
     volumes:
       - .env:/app/.env:ro

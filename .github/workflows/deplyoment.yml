@@ -3,7 +3,6 @@
 name: CD
 
 on:
-  workflow_dispatch:
   release:
     types: [ published ]
 
@@ -15,6 +14,7 @@ jobs:
   build-and-push-image:
     name: Build & push image to ghcr.io
     runs-on: ubuntu-latest
+    if: ${{ github.event.release.draft != true && github.event.release.prerelease != true }}
     permissions:
       contents: read
       packages: write

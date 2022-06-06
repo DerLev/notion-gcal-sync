@@ -38,6 +38,8 @@ jobs:
           tags: |
             type=raw,value=latest
             type=semver,pattern=v{{major}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            type=semver,pattern=v{{version}}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v3

@@ -63,7 +63,7 @@ dotenv.config()
  * Prints out a log message with date, time and log-level
  * @param {number} level The log-level - 0: critical; 1: warning; 2: info; 3: output/debug
  * @param {any} text The message test
- * @param  {...any} moreText More text for the log message
+ * @param {...any} moreText More text for the log message
  */
  const log = (level: number, text: any, ...moreText: any) => {
   let logLevel
@@ -104,7 +104,7 @@ const envSchema = Joi.object({
   googleClientId: Joi.string().required(),
   googleClientSecret: Joi.string().required(),
   googleAccountRefreshToken: Joi.string().required(),
-  timezone: Joi.string().required(),
+  timezone: Joi.string().required().regex(/^(\w){1,}\/(\w){1,}$/),
   notionToken: Joi.string().required(),
   syncInterval: Joi.number().required().integer().greater(0).less(1440).positive()
 })
@@ -316,7 +316,7 @@ const notionEvent = (
       }
     }
 
-    if(endDate) properties.Date.date.end = endDate
+    if(endDate) properties[dbs[db].date].date.end = endDate
   }
 
   if(dbs[db].location != null) {

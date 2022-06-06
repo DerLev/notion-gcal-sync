@@ -5,6 +5,18 @@ import chalk from 'chalk'
 import { createSpinner } from 'nanospinner'
 import Joi from 'joi'
 
+console.log(
+  chalk.blue(
+    figlet.textSync(
+      'Notion GCal Sync',
+      {
+        horizontalLayout: "controlled smushing"
+      }
+    )
+  )
+)
+console.log(chalk.cyan(figlet.textSync('Calendars list', { font: 'Small', horizontalLayout: 'controlled smushing' })))
+
 dotenv.config()
 
 // check environment variables
@@ -40,18 +52,6 @@ oAuth2Client.setCredentials({
 // Initializing calendar object with OAuth2 client
 const calendar = google.calendar({ version: 'v3', auth: oAuth2Client })
 
-console.log(
-  chalk.blue(
-    figlet.textSync(
-      'Notion GCal Sync',
-      {
-        horizontalLayout: "controlled smushing"
-      }
-    )
-  )
-)
-
-console.log(chalk.cyan(figlet.textSync('Calendars list', { font: 'Small', horizontalLayout: 'controlled smushing' })))
 console.log('')
 const spinner = createSpinner('Fetching data').start({ color: 'green' })
 

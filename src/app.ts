@@ -1,4 +1,5 @@
 import {
+  chalk,
   gcals,
   dbs,
   dbSettings,
@@ -464,9 +465,6 @@ const updateLoop = async () => {
   }
 }
 
-console.log()
-log(2, 'Executing full sync on all Google Calendars...')
-gcals.map(async (calendar) => await fullSync(calendar.id, calendar.notionDB, calendar.additional, [], true))
 let doneSyncs = 0
 const startLoop = async () => {
   if(doneSyncs < (gcals.length - 1)) doneSyncs++
@@ -479,3 +477,49 @@ const startLoop = async () => {
     await updateLoop()
   }
 }
+
+const checkDatabaseConfig = async () => {
+  const startDate = new Date()
+  startDate.setHours(startDate.getHours() - 1)
+  const endDate = startDate
+  endDate.setMinutes(endDate.getMinutes() + 1)
+
+  const dbsArr = Object.keys(dbs)
+  const dbsMap = dbsArr.map(async (db) => {
+    try {
+      const createRes = await notionCreateEvent(
+        db,
+        'TESTING DB FIELDS',
+        'This is a testing entity. If it still exists after the db check you can delete it.',
+        startDate.toISOString(),
+        endDate.toISOString(),
+        'Your installation of notion-gcal-sync',
+        'https://github.com/DerLev/notion-gcal-sync/',
+        'test',
+        'thisIsATestEvent',
+        {}
+      )
+      await sleep(1000)
+      await notionUpdateEventEnded(db, createRes.id, true)
+      await sleep(1000)
+      await notionDeleteEvent(createRes.id)
+    } catch(err: any) {
+      log(0, 'The database field check failed. Take a look at the error above ↑↑↑ Erroring id:', chalk.bgBlue(db))
+      log(2, 'You now need to look through your configured databases and delete the testing entities 🙄')
+      process.exit(1)
+    }
+    return { db: true }
+  })
+
+  return Promise.all(dbsMap)
+}
+
+const main = async () => {
+  console.log()
+  log(2, 'Checking databse config...')
+  await checkDatabaseConfig()
+  log(2, 'Database config valid.')
+  log(2, 'Executing full sync on all Google Calendars...')
+  gcals.map(async (calendar) => await fullSync(calendar.id, calendar.notionDB, calendar.additional, [], true))
+}
+main()

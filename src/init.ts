@@ -123,6 +123,18 @@ const validateEnv = () => {
 }
 validateEnv()
 
+// check for unique ids in gcal-sync.js
+const checkUniqueKeys = (arr: any[]) => {
+  return (new Set(arr)).size !== arr.length
+}
+
+const gcalIds = gcals.map((gcal) => gcal.id)
+
+if(checkUniqueKeys(gcalIds) == true) {
+  log(0, 'Duplicate Gcal IDs detected in', chalk.bgGreen('gcal-sync.js'))
+  process.exit(1)
+}
+
 // check dbs.js file for correct formatting
 const dbsSchema = Joi.object({
   title: Joi.string().required(),

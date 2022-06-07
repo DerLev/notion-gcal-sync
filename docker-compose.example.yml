@@ -5,7 +5,13 @@ services:
     image: ghcr.io/derlev/notion-gcal-sync:v1
     container_name: notion-gcal-sync
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "build/healthcheck.js"]
+      interval: 2m
+      timeout: 10s
+      retries: 2
+      start_period: 10s
     volumes:
-      - .env:/app/.env:ro
-      - dbs.js:/app/config/dbs.js:ro
-      - gcal-sync.js:/app/config/gcal-sync.js:ro
+      - ./.env:/app/.env:ro
+      - ./dbs.js:/app/config/dbs.js:ro
+      - ./gcal-sync.js:/app/config/gcal-sync.js:ro

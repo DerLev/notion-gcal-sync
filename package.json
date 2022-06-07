@@ -1,6 +1,6 @@
 {
   "name": "notion-gcal-sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "build/app.js",
   "scripts": {
@@ -10,7 +10,8 @@
     "listCals": "node build/listCals.js",
     "dev": "concurrently -k -c #3178c6,#4b32c3 -n tsc,eslint yarn:dev:tsc yarn:dev:esl",
     "dev:tsc": "tsc -w",
-    "dev:esl": "esw -w . --ext .ts"
+    "dev:esl": "esw -w . --ext .ts",
+    "healthcheck": "node build/healthcheck.js"
   },
   "repository": {
     "type": "git",

@@ -217,6 +217,17 @@ oAuth2Client.setCredentials({
 
 // Initializing calendar object with OAuth2 client
 const calendar = google.calendar({ version: 'v3', auth: oAuth2Client })
+calendar.calendarList.list(
+  {},
+  (err) => {
+    if (err) {
+      log(0, "The refresh token is invalid!")
+      // @ts-ignore
+      log(3, err.response.data ? err.response.data : err)
+      process.exit(1)
+    }
+  }
+)
 
 // Initializing Notion application with set token
 const notion = new Client({ auth: process.env.NOTION_TOKEN })
